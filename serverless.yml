@@ -1,0 +1,230 @@
+service: plum-tree-api-${env:STACK}
+app: plum-tree
+
+plugins:
+  - serverless-offline
+  - serverless-prune-plugin
+
+useDotenv: true
+
+provider:
+  name: aws
+  deploymentBucket: ${env:STATE_BUCKET}
+  runtime: nodejs16.x
+  region: eu-west-1
+  # Stage name is required but it's pretty irrelevant as we only use one
+  stage: live
+  iamManagedPolicies:
+    - 'arn:aws:iam::${env:AWS_ACCOUNT_ID}:policy/plum-tree-uploads-bucket-access'
+    - 'arn:aws:iam::${env:AWS_ACCOUNT_ID}:policy/plum-tree-send-mail'
+    - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
+  apiGateway:
+    restApiId: ${env:API_GATEWAY_ID}
+    restApiRootResourceId: ${env:API_ROOT_RESOURCE_ID}
+  environment:
+    MONGO_USER: ${env:MONGO_USER}
+    MONGO_PASSWORD: ${env:MONGO_PASSWORD}
+    JWT_SECRET: ${env:JWT_SECRET}
+  vpc:
+    securityGroupIds:
+      - sg-07dfd28660c017a02
+    subnetIds:
+      - subnet-010869cf6b986f076
+      - subnet-0b52d4d6472b7c338
+
+custom:
+  prune:
+    automatic: true
+    number: 3
+
+functions:
+  version:
+    handler: src/api/version.handler
+    environment:
+      VERSION: ${env:CI_COMMIT_SHORT_SHA,"none"}
+      STACK: ${env:STACK,"none"}
+    vpc:
+      securityGroupIds: []
+      subnetIds: []
+    events:
+      - http:
+          path: /api/version
+          method: get
+  publishedGetTrees:
+    handler: src/api/published/getTrees.handler
+    events:
+      - http:
+          path: /api/published
+          method: get
+  publishedGetTree:
+    handler: src/api/published/getTree.handler
+    events:
+      - http:
+          path: /api/published/{id}
+          method: get
+  publishedPutTree:
+    handler: src/api/published/putTree.handler
+    events:
+      - http:
+          path: /api/published/{id}
+          method: put
+  publishedDeleteTree:
+    handler: src/api/published/deleteTree.handler
+    events:
+      - http:
+          path: /api/published/{id}
+          method: delete
+  accountSignin:
+    handler: src/api/account/signin.handler
+    events:
+      - http:
+          path: /api/account/signin
+          method: post
+  accountSignup:
+    handler: src/api/account/signup.handler
+    events:
+      - http:
+          path: /api/account/signup
+          method: post
+  accountDelete:
+    handler: src/api/account/delete.handler
+    events:
+      - http:
+          path: /api/account
+          method: delete
+  treesGetTrees:
+    handler: src/api/trees/getTrees.handler
+    events:
+      - http:
+          path: /api/trees
+          method: get
+  treesGetTree:
+    handler: src/api/trees/getTree.handler
+    events:
+      - http:
+          path: /api/trees/{id}
+          method: get
+  treesPatchTree:
+    handler: src/api/trees/patchTree.handler
+    events:
+      - http:
+          path: /api/trees/{id}
+          method: patch
+  treesPostTree:
+    handler: src/api/trees/postTree.handler
+    events:
+      - http:
+          path: /api/trees
+          method: post
+  treesDeleteTree:
+    handler: src/api/trees/deleteTree.handler
+    events:
+      - http:
+          path: /api/trees/{id}
+          method: delete
+  peopleGetPeople:
+    handler: src/api/people/getPeople.handler
+    events:
+      - http:
+          path: /api/people
+          method: get
+  peopleGetPerson:
+    handler: src/api/people/getPerson.handler
+    events:
+      - http:
+          path: /api/people/{id}
+          method: get
+  peoplePostPerson:
+    handler: src/api/people/postPerson.handler
+    events:
+      - http:
+          path: /api/people
+          method: post
+  peoplePutPerson:
+    handler: src/api/people/putPerson.handler
+    events:
+      - http:
+          path: /api/people/{id}
+          method: put
+  peopleDeletePerson:
+    handler: src/api/people/deletePerson.handler
+    events:
+      - http:
+          path: /api/people/{id}
+          method: delete
+  userGetUser:
+    handler: src/api/user/getUser.handler
+    events:
+      - http:
+          path: /api/user
+          method: get
+  userUpdateEmail:
+    handler: src/api/user/updateEmail.handler
+    events:
+      - http:
+          path: /api/user/email
+          method: put
+  userUpdatePassword:
+    handler: src/api/user/updatePassword.handler
+    events:
+      - http:
+          path: /api/user/password
+          method: put
+  accountForgotPassword:
+    handler: src/api/account/forgotPassword.handler
+    environment:
+      SMTP_USERNAME: ${env:SMTP_USERNAME}
+      SMTP_PASSWORD: ${env:SMTP_PASSWORD}
+    events:
+      - http:
+          path: /api/account/forgotpassword
+          method: post
+  accountResetPassword:
+    handler: src/api/account/resetPassword.handler
+    events:
+      - http:
+          path: /api/account/resetpassword
+          method: post
+  accountForgotUsername:
+    handler: src/api/account/forgotUsername.handler
+    environment:
+      SMTP_USERNAME: ${env:SMTP_USERNAME}
+      SMTP_PASSWORD: ${env:SMTP_PASSWORD}
+    events:
+      - http:
+          path: /api/account/forgotusername
+          method: post
+  getUploadUrl:
+    handler: src/api/upload/getUrl.handler
+    vpc:
+      securityGroupIds: []
+      subnetIds: []
+    events:
+      - http:
+          path: /api/upload/url
+          method: get
+  putUploadCrop:
+    handler: src/api/upload/crop.handler
+    vpc:
+      securityGroupIds: []
+      subnetIds: []
+    events:
+      - http:
+          path: /api/upload/crop
+          method: put
+  getResizedImage:
+    handler: src/api/upload/getResizedImage.handler
+    vpc:
+      securityGroupIds: []
+      subnetIds: []
+    events:
+      - http:
+          path: /api/upload/{dimensions}/{image+}
+          method: get
+  downloadTreePrepare:
+    handler: src/api/download/downloadTree.handler
+    timeout: 240
+    events:
+      - http:
+          path: /api/trees/{id}/download
+          method: get

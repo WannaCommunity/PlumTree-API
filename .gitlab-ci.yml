@@ -1,0 +1,57 @@
+variables:
+  AWS_DEFAULT_REGION: eu-west-1
+
+.executor-node: &executor-node
+  image: node:16
+  tags:
+    - docker
+
+stages:
+  - validation
+  - deploy
+
+audit:
+  stage: validation
+  allow_failure: true
+  <<: *executor-node
+  script:
+    - npm audit --audit-level=moderate --production
+
+outdated:
+  stage: validation
+  allow_failure: true
+  <<: *executor-node
+  script:
+    - npm ci
+    - npm outdated
+
+lint:
+  stage: validation
+  <<: *executor-node
+  script:
+    - npm ci
+    - npm run lint
+
+deploy:
+  stage: deploy
+  <<: *executor-node
+  variables:
+    API_GATEWAY_NAME: plum-tree-$STACK
+  only:
+    variables:
+      - $STACK
+  when: manual
+  script:
+    - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    - unzip awscliv2.zip
+    - ./aws/install
+    - rm -rf aws/
+    - aws --version
+    # setup env vars
+    - export API_GATEWAY_ID=$(aws apigateway get-rest-apis --output text --query "items[?name == '$API_GATEWAY_NAME'] | [0].id")
+    - export API_ROOT_RESOURCE_ID=$(aws apigateway get-resources --rest-api-id=$API_GATEWAY_ID --output text --query "items[?path=='/'].id")
+    - echo $API_GATEWAY_ID
+    - echo $API_ROOT_RESOURCE_ID
+    # install dependencies & deploy
+    - npm ci
+    - npm run deploy
